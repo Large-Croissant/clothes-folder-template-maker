@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shirt Folder Template Maker</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="appRoot">
+  <header class="app-header">
+    <h1>Shirt Folder Template Maker</h1>
+    <div class="header-actions">
+      <div class="seg" id="unitToggle" role="group" aria-label="Units">
+        <button data-unit="in" class="active">in</button>
+        <button data-unit="cm">cm</button>
+      </div>
+      <button id="resetBtn" class="btn ghost">Reset</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside id="controls">
+
+      <details class="ctrl-block howto" open>
+        <summary>How it works</summary>
+        <ol>
+          <li>Lay a shirt <b>face-down</b> on the <b>center panel</b> — it's the exact size of the folded result.</li>
+          <li>Fold the <b>left and right flaps</b> in over the shirt.</li>
+          <li>Fold the <b>bottom flap</b> up — and if you enabled <b>bottom flap 2</b>, fold that one over it for a double fold.</li>
+          <li>Print the template, tape it to cardboard / foam board, cut it out.</li>
+        </ol>
+      </details>
+
+      <section class="ctrl-block">
+        <div class="seg seg-block" id="modeToggle" role="group" aria-label="Mode">
+          <button data-mode="manual">Manual</button>
+          <button data-mode="auto" class="active">Auto-size</button>
+        </div>
+        <p class="hint" id="modeHint"></p>
+      </section>
+
+      <section class="ctrl-block">
+        <h2>Final folded size <span class="subnote">= center panel</span></h2>
+        <div class="dim-row" id="centerDims"></div>
+      </section>
+
+      <section class="ctrl-block">
+        <h2>Your shirts <span class="subnote">optional</span></h2>
+        <div class="dim-row" id="shirtDims"></div>
+        <p class="hint">Sizes of your widest / longest shirt, laid flat — used for smarter flap sizing and fold warnings.</p>
+      </section>
+
+      <section class="ctrl-block">
+        <h2>Hinge gap</h2>
+        <div class="dim-row" id="gapRow"></div>
+      </section>
+
+      <section class="ctrl-block">
+        <h2>Panels</h2>
+        <div id="panelRows"></div>
+      </section>
+
+      <section class="ctrl-block">
+        <h2>Presets</h2>
+        <div class="preset-row">
+          <button class="btn preset" data-preset="adult">Adult</button>
+          <button class="btn preset" data-preset="youth">Youth</button>
+          <button class="btn preset" data-preset="toddler">Toddler</button>
+        </div>
+      </section>
+
+      <section class="ctrl-block summary-block" id="summaryBox"></section>
+      <section class="ctrl-block" id="warnings"></section>
+
+      <section class="ctrl-block">
+        <h2>Print &amp; export</h2>
+        <div class="print-opts">
+          <label>Paper
+            <select id="paperSize">
+              <option value="letter">Letter (8.5 × 11 in)</option>
+              <option value="a4">A4 (8.27 × 11.7 in)</option>
+            </select>
+          </label>
+          <label>Orientation
+            <select id="paperOrient">
+              <option value="auto">Auto</option>
+              <option value="portrait">Portrait</option>
+              <option value="landscape">Landscape</option>
+            </select>
+          </label>
+          <label>Layout
+            <select id="printLayout">
+              <option value="tile">Tiled, true size</option>
+              <option value="fit">Fit on one page</option>
+            </select>
+          </label>
+          <label>PNG quality
+            <select id="dpiSel">
+              <option value="150">150 dpi</option>
+              <option value="300">300 dpi</option>
+            </select>
+          </label>
+        </div>
+        <div class="action-row">
+          <button id="printBtn" class="btn primary">Print template…</button>
+          <button id="svgBtn" class="btn">Download SVG</button>
+          <button id="pngBtn" class="btn">Download PNG</button>
+          <button id="cheatBtn" class="btn">Dimension cheat-sheet</button>
+        </div>
+        <p class="hint">Printing: choose <b>Actual size / 100%</b> and margins <b>None</b> (or minimum), then verify with the calibration square.</p>
+      </section>
+
+    </aside>
+
+    <section id="stage">
+      <div id="canvasWrap" tabindex="0" aria-label="Template preview"></div>
+      <p class="stage-note">Dashed lines = hinges · click a panel to highlight it · everything updates live</p>
+    </section>
+  </main>
+</div>
+
+<div id="cheatModal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>Dimension cheat-sheet</h2>
+      <button class="btn ghost" id="cheatClose">✕</button>
+    </div>
+    <pre id="cheatPre"></pre>
+    <div class="modal-actions">
+      <button class="btn primary" id="cheatCopy">Copy to clipboard</button>
+    </div>
+  </div>
+</div>
+
+<div id="printRoot" aria-hidden="true"></div>
+
+<script src="export.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
