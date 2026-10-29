@@ -12,6 +12,7 @@
   <header class="app-header">
     <h1>Shirt Folder Template Maker</h1>
     <div class="header-actions">
+      <button id="themeBtn" title="Switch color theme">☀️ Light</button>
       <div class="seg" id="unitToggle" role="group" aria-label="Units">
         <button data-unit="in" class="active">in</button>
         <button data-unit="cm">cm</button>
@@ -60,6 +61,27 @@
       <section class="ctrl-block">
         <h2>Panels</h2>
         <div id="panelRows"></div>
+      </section>
+
+      <section class="ctrl-block">
+        <h2>Panel links</h2>
+        <label class="check-row" id="linkRowMirror">
+          <span>Mirror left ↔ right flaps</span>
+          <span class="switch"><input type="checkbox" id="linkMirror" checked><span></span></span>
+        </label>
+        <label class="check-row" id="linkRowEqual">
+          <span>Bottom flap 1 = flap 2</span>
+          <span class="switch"><input type="checkbox" id="linkEqual"><span></span></span>
+        </label>
+        <label class="check-row" id="linkRowHalf">
+          <span>Bottom folds = ½ center each</span>
+          <span class="switch"><input type="checkbox" id="linkHalf"><span></span></span>
+        </label>
+        <label class="check-row" id="linkRowFull">
+          <span>Bottom fold = center height</span>
+          <span class="switch"><input type="checkbox" id="linkFull"><span></span></span>
+        </label>
+        <p class="hint">Manual mode follows these links while you type; Auto-size uses them to shape the computed folds. The ½ and center-height links are mutually exclusive.</p>
       </section>
 
       <section class="ctrl-block">

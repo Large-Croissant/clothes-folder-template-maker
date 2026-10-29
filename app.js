@@ -37,9 +37,11 @@ const LS_KEY = 'shirtFolderTemplateMaker.v1';
 function defaultState() {
   return {
     version: 1,
+    theme: 'dark',
     units: 'in',
     mode: 'auto',
     selected: 'center',
+    links: { mirrorLR: true, equalBottoms: false, halfCenter: false, fullCenter: false },
     center: { w: 9, h: 12 },
     gap: 0.25,
     shirt: { chest: 18, length: 27 },
@@ -61,6 +63,7 @@ function loadState() {
     const s = JSON.parse(raw), d = defaultState();
     return {
       ...d, ...s,
+      links: { ...d.links, ...(s.links || {}) },
       center: { ...d.center, ...(s.center || {}) },
       shirt:  { ...d.shirt,  ...(s.shirt || {}) },
       print:  { ...d.print,  ...(s.print || {}) },
@@ -130,22 +133,40 @@ function applyAuto() {
 
   if (f.bottom.enabled) {
     f.bottom.w = cw;
-    if (f.bottom2.enabled) {
+    const L = state.links;
+
+    if (L.halfCenter) {
+      // two equal folds, each half the center height (garment folds in half)
+      f.bottom.h = r2(ch / 2);
+      if (f.bottom2.enabled) f.bottom2.h = r2(ch / 2);
+    } else if (L.fullCenter) {
+      f.bottom.h = ch;
+      if (f.bottom2.enabled) f.bottom2.h = ch;
+    } else if (f.bottom2.enabled) {
       // double fold: two chained panels share the fabric below the center panel
       const reach = isNum(len) && len > ch ? (len - ch) : ch * 0.55;
-      f.bottom.h  = r2(clamp(reach * 0.65, ch * 0.25, ch * 0.45));
-      f.bottom2.w = cw;
-      f.bottom2.h = r2(clamp(reach * 0.35, ch * 0.18, ch * 0.30));
+      let b1, b2;
+      if (L.equalBottoms) {
+        const e = clamp(reach / 2, ch * 0.15, ch * 0.42);
+        b1 = b2 = e;
+      } else {
+        b1 = clamp(reach * 0.65, ch * 0.25, ch * 0.45);
+        b2 = clamp(reach * 0.35, ch * 0.18, ch * 0.30);
+      }
+      f.bottom.h = r2(b1);
+      f.bottom2.h = r2(b2);
     } else {
       let bh = ch * 0.5;
       if (isNum(len) && len > ch) bh = clamp(len - ch, Math.max(1, ch * 0.25), ch * 0.55);
       f.bottom.h = r2(bh);
     }
+    if (f.bottom2.enabled) f.bottom2.w = cw;
   }
 }
 
 function syncLinks() {
   const f = state.flaps, { w: cw, h: ch } = state.center;
+  const L = state.links;
   for (const id of ['left', 'right']) {
     if (!f[id].enabled) continue;
     if (state.mode === 'manual' && f[id].linkH) f[id].h = ch;
@@ -153,6 +174,16 @@ function syncLinks() {
   for (const id of ['bottom', 'bottom2']) {
     if (!f[id].enabled) continue;
     if (state.mode === 'manual' && f[id].linkW) f[id].w = cw;
+  }
+  // derived fold depths (read-only while these links are on, in manual mode)
+  if (state.mode === 'manual' && f.bottom.enabled) {
+    if (L.halfCenter) {
+      f.bottom.h = r2(ch / 2);
+      if (f.bottom2.enabled) f.bottom2.h = r2(ch / 2);
+    } else if (L.fullCenter) {
+      f.bottom.h = ch;
+      if (f.bottom2.enabled) f.bottom2.h = ch;
+    }
   }
 }
 
@@ -172,6 +203,11 @@ function sanitize() {
   }
   // flap 2 needs flap 1 to exist (chained hinge)
   if (!state.flaps.bottom.enabled) state.flaps.bottom2.enabled = false;
+  // fold link flags + mutual exclusion for the derived fold depths
+  for (const k of ['mirrorLR', 'equalBottoms', 'halfCenter', 'fullCenter']) {
+    state.links[k] = !!state.links[k];
+  }
+  if (state.links.halfCenter && state.links.fullCenter) state.links.fullCenter = false;
   if (!PANELS[state.selected]) state.selected = 'center';
 }
 
@@ -296,16 +332,34 @@ function buildPanelRows() {
     dims.className = 'dim-row';
     row.appendChild(dims);
 
+    // setters that respect the panel links (mirror L/R, equal bottom folds)
+    const setW = (v) => {
+      state.flaps[id].w = v;
+      if (state.links.mirrorLR && (id === 'left' || id === 'right')) {
+        state.flaps[id === 'left' ? 'right' : 'left'].w = v;
+      }
+    };
+    const setH = (v) => {
+      state.flaps[id].h = v;
+      if (state.links.mirrorLR && (id === 'left' || id === 'right')) {
+        state.flaps[id === 'left' ? 'right' : 'left'].h = v;
+      }
+      if ((id === 'bottom' || id === 'bottom2') && state.mode === 'manual'
+          && state.links.equalBottoms && state.flaps.bottom2.enabled) {
+        state.flaps[id === 'bottom' ? 'bottom2' : 'bottom'].h = v;
+      }
+    };
+
     const fdW = addField(dims, {
       id: `flap-${id}-w`, label: 'Width',
-      get: () => state.flaps[id].w, set: v => state.flaps[id].w = v,
+      get: () => state.flaps[id].w, set: setW,
       min: DIM_MIN, max: DIM_MAX, panel: id,
       disabledFn: () => autoLocked(id, 'w'),
     });
 
     const fdH = addField(dims, {
       id: `flap-${id}-h`, label: 'Height',
-      get: () => state.flaps[id].h, set: v => state.flaps[id].h = v,
+      get: () => state.flaps[id].h, set: setH,
       min: DIM_MIN, max: DIM_MAX, panel: id,
       disabledFn: () => autoLocked(id, 'h'),
     });
@@ -337,8 +391,11 @@ function buildPanelRows() {
     row.querySelector('[data-flap-toggle]').addEventListener('change', (e) => {
       state.flaps[id].enabled = e.target.checked;
       if (id === 'bottom' && !e.target.checked) state.flaps.bottom2.enabled = false;
-      if (id === 'bottom2' && e.target.checked && !state.flaps.bottom.enabled) {
+      if (id === 'bottom2' && e.target.checked) {
         state.flaps.bottom.enabled = true; // chained hinge needs flap 1
+        if (state.mode === 'manual' && state.links.equalBottoms) {
+          state.flaps.bottom2.h = state.flaps.bottom.h;
+        }
       }
       if (state.mode === 'auto') applyAuto();
       changed();
@@ -354,12 +411,25 @@ function autoLocked(id, dimKey) {
   const f = state.flaps[id];
   if (state.mode === 'auto' || !f.enabled) return true;
   if (id === 'bottom2' && !state.flaps.bottom.enabled) return true;
+  if ((id === 'bottom' || id === 'bottom2') && dimKey === 'h') {
+    if (state.links.halfCenter || state.links.fullCenter) return true;
+  }
   if ((id === 'bottom' || id === 'bottom2') && dimKey === 'w') return !!f.linkW;
   if (id !== 'bottom' && id !== 'bottom2' && dimKey === 'h') return !!f.linkH;
   return false;
 }
 
 /* ---------- rendering ---------- */
+function applyTheme() {
+  const light = state.theme === 'light';
+  document.body.classList.toggle('light', light);
+  const btn = $('#themeBtn');
+  if (btn) {
+    btn.textContent = light ? '🌙 Dark' : '☀️ Light';
+    btn.title = light ? 'Switch to dark theme' : 'Switch to light theme';
+  }
+}
+
 function refreshFields() {
   for (const f of fieldDefs) f.refresh();
   // link buttons state
@@ -388,6 +458,20 @@ function updateModeUI() {
     row.classList.toggle('selected', state.selected === id);
     row.querySelector('[data-flap-toggle]').checked = f.enabled;
   });
+
+  // panel-link toggles
+  const L = state.links;
+  const setLink = (sel, rowSel, val, enabled) => {
+    const cb = $(sel);
+    if (!cb) return;
+    cb.checked = !!val;
+    cb.disabled = !enabled;
+    $(rowSel).classList.toggle('disabled', !enabled);
+  };
+  setLink('#linkMirror', '#linkRowMirror', L.mirrorLR, true);
+  setLink('#linkEqual', '#linkRowEqual', L.equalBottoms, state.flaps.bottom2.enabled);
+  setLink('#linkHalf', '#linkRowHalf', L.halfCenter, state.flaps.bottom.enabled);
+  setLink('#linkFull', '#linkRowFull', L.fullCenter, state.flaps.bottom.enabled);
 }
 
 /* --- interactive SVG --- */
@@ -483,7 +567,7 @@ function draw() {
       <defs>
         <marker id="arw" markerUnits="userSpaceOnUse" markerWidth="0.14" markerHeight="0.14"
           refX="0.12" refY="0.07" orient="auto-start-reverse">
-          <path d="M0,0 L0.14,0.07 L0,0.14 z" fill="#b3a892"/>
+          <path d="M0,0 L0.14,0.07 L0,0.14 z" class="dim-arrow"/>
         </marker>
       </defs>
       ${parts.join('\n')}
@@ -512,6 +596,7 @@ function renderWarnings() {
 }
 
 function renderAll() {
+  applyTheme();
   refreshFields();
   updateModeUI();
   draw();
@@ -546,6 +631,33 @@ function applyPreset(name) {
 
 /* ---------- static bindings ---------- */
 function bindStatic() {
+  $('#themeBtn').addEventListener('click', () => {
+    state.theme = state.theme === 'light' ? 'dark' : 'light';
+    changed();
+  });
+
+  const linkToggles = [
+    ['#linkMirror', 'mirrorLR'],
+    ['#linkEqual', 'equalBottoms'],
+    ['#linkHalf', 'halfCenter'],
+    ['#linkFull', 'fullCenter'],
+  ];
+  for (const [sel, key] of linkToggles) {
+    $(sel).addEventListener('change', (e) => {
+      state.links[key] = e.target.checked;
+      if (key === 'halfCenter' && e.target.checked) state.links.fullCenter = false;
+      if (key === 'fullCenter' && e.target.checked) state.links.halfCenter = false;
+      if (key === 'mirrorLR' && e.target.checked) {
+        state.flaps.right.w = state.flaps.left.w;
+        state.flaps.right.h = state.flaps.left.h;
+      }
+      if (key === 'equalBottoms' && e.target.checked && state.flaps.bottom2.enabled) {
+        state.flaps.bottom2.h = state.flaps.bottom.h;
+      }
+      changed();
+    });
+  }
+
   $$('#unitToggle button').forEach(b => b.addEventListener('click', () => {
     state.units = b.dataset.unit;
     changed();
